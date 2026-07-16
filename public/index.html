@@ -51,25 +51,49 @@
       <div class="flex items-center gap-1.5 md:gap-2 flex-1 overflow-x-auto scrollbar-none">
         <select id="marketSelect" class="ctrl-select">
           <optgroup label="Volatility">
-            <option value="R_10">Vol 10</option>
-            <option value="R_25">Vol 25</option>
-            <option value="R_50">Vol 50</option>
-            <option value="R_75" selected>Vol 75</option>
-            <option value="R_100">Vol 100</option>
+            <option value="R_10">Volatility 10 Index</option>
+            <option value="R_25">Volatility 25 Index</option>
+            <option value="R_50">Volatility 50 Index</option>
+            <option value="R_75" selected>Volatility 75 Index</option>
+            <option value="R_100">Volatility 100 Index</option>
+            <option value="R_150">Volatility 150 Index</option>
+            <option value="R_200">Volatility 200 Index</option>
+          </optgroup>
+          <optgroup label="Volatility 1s">
+            <option value="1HZ10V">Volatility 10 (1s) Index</option>
+            <option value="1HZ25V">Volatility 25 (1s) Index</option>
+            <option value="1HZ50V">Volatility 50 (1s) Index</option>
+            <option value="1HZ75V">Volatility 75 (1s) Index</option>
+            <option value="1HZ100V">Volatility 100 (1s) Index</option>
+            <option value="1HZ150V">Volatility 150 (1s) Index</option>
+            <option value="1HZ200V">Volatility 200 (1s) Index</option>
+          </optgroup>
+          <optgroup label="Volatility 10s">
+            <option value="10HZ10V">Volatility 10 (10s) Index</option>
+            <option value="10HZ25V">Volatility 25 (10s) Index</option>
+            <option value="10HZ50V">Volatility 50 (10s) Index</option>
+            <option value="10HZ75V">Volatility 75 (10s) Index</option>
+            <option value="10HZ100V">Volatility 100 (10s) Index</option>
+            <option value="10HZ150V">Volatility 150 (10s) Index</option>
+            <option value="10HZ200V">Volatility 200 (10s) Index</option>
           </optgroup>
           <optgroup label="Boom & Crash">
-            <option value="BOOM300">Boom 300</option>
-            <option value="BOOM500">Boom 500</option>
-            <option value="BOOM1000">Boom 1000</option>
-            <option value="CRASH300">Crash 300</option>
-            <option value="CRASH500">Crash 500</option>
-            <option value="CRASH1000">Crash 1000</option>
+            <option value="BOOM300">Boom 300 Index</option>
+            <option value="BOOM500">Boom 500 Index</option>
+            <option value="BOOM1000">Boom 1000 Index</option>
+            <option value="CRASH300">Crash 300 Index</option>
+            <option value="CRASH500">Crash 500 Index</option>
+            <option value="CRASH1000">Crash 1000 Index</option>
           </optgroup>
-          <optgroup label="Indices & Forex">
-            <option value="JD50">Jump 50</option>
+          <optgroup label="Jump & Step">
+            <option value="JD50">Jump 50 Index</option>
             <option value="STPRNG">Step Index</option>
+          </optgroup>
+          <optgroup label="Forex & Metals">
             <option value="frxEURUSD">EUR/USD</option>
             <option value="frxGBPUSD">GBP/USD</option>
+            <option value="frxXAUUSD">XAU/USD</option>
+            <option value="frxXAGUSD">XAG/USD</option>
           </optgroup>
         </select>
         <select id="timeframeSelect" class="ctrl-select w-16 md:w-auto">
@@ -148,15 +172,51 @@
       <div class="dig-card-title mb-4">Predict Next Digit</div>
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-3 mb-3">
         <select id="digMarketSelect" class="ctrl-select text-xs md:text-sm">
-          <option value="R_10">R_10</option>
-          <option value="R_25">R_25</option>
-          <option value="R_50">R_50</option>
-          <option value="R_75" selected>R_75</option>
-          <option value="R_100">R_100</option>
-          <option value="BOOM300">BOOM300</option>
-          <option value="BOOM500">BOOM500</option>
-          <option value="CRASH300">CRASH300</option>
-          <option value="CRASH500">CRASH500</option>
+          <optgroup label="Volatility">
+            <option value="R_10">Volatility 10 Index</option>
+            <option value="R_25">Volatility 25 Index</option>
+            <option value="R_50">Volatility 50 Index</option>
+            <option value="R_75" selected>Volatility 75 Index</option>
+            <option value="R_100">Volatility 100 Index</option>
+            <option value="R_150">Volatility 150 Index</option>
+            <option value="R_200">Volatility 200 Index</option>
+          </optgroup>
+          <optgroup label="Volatility 1s">
+            <option value="1HZ10V">Volatility 10 (1s) Index</option>
+            <option value="1HZ25V">Volatility 25 (1s) Index</option>
+            <option value="1HZ50V">Volatility 50 (1s) Index</option>
+            <option value="1HZ75V">Volatility 75 (1s) Index</option>
+            <option value="1HZ100V">Volatility 100 (1s) Index</option>
+            <option value="1HZ150V">Volatility 150 (1s) Index</option>
+            <option value="1HZ200V">Volatility 200 (1s) Index</option>
+          </optgroup>
+          <optgroup label="Volatility 10s">
+            <option value="10HZ10V">Volatility 10 (10s) Index</option>
+            <option value="10HZ25V">Volatility 25 (10s) Index</option>
+            <option value="10HZ50V">Volatility 50 (10s) Index</option>
+            <option value="10HZ75V">Volatility 75 (10s) Index</option>
+            <option value="10HZ100V">Volatility 100 (10s) Index</option>
+            <option value="10HZ150V">Volatility 150 (10s) Index</option>
+            <option value="10HZ200V">Volatility 200 (10s) Index</option>
+          </optgroup>
+          <optgroup label="Boom & Crash">
+            <option value="BOOM300">Boom 300 Index</option>
+            <option value="BOOM500">Boom 500 Index</option>
+            <option value="BOOM1000">Boom 1000 Index</option>
+            <option value="CRASH300">Crash 300 Index</option>
+            <option value="CRASH500">Crash 500 Index</option>
+            <option value="CRASH1000">Crash 1000 Index</option>
+          </optgroup>
+          <optgroup label="Jump & Step">
+            <option value="JD50">Jump 50 Index</option>
+            <option value="STPRNG">Step Index</option>
+          </optgroup>
+          <optgroup label="Forex & Metals">
+            <option value="frxEURUSD">EUR/USD</option>
+            <option value="frxGBPUSD">GBP/USD</option>
+            <option value="frxXAUUSD">XAU/USD</option>
+            <option value="frxXAGUSD">XAG/USD</option>
+          </optgroup>
         </select>
         <select id="digPredType" class="ctrl-select text-xs md:text-sm">
           <option value="matchesdiffers">Match / Differ</option>

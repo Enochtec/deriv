@@ -48,6 +48,7 @@ const App = (() => {
 
     marketSel.addEventListener('change', () => {
       const sym = marketSel.value;
+      Digits.setSymbol(sym);
       DerivAPI.subscribe(sym);
       loadCandles(sym, +tfSel.value);
       document.getElementById('footerMarket').textContent = sym;
@@ -260,6 +261,7 @@ const App = (() => {
       document.getElementById('digPredictStatus').textContent = 'Not enough data — need at least 20 ticks';
       return;
     }
+    Digits.setLastStrategyPredictions(pred._strategyPredictions);
 
     document.getElementById('digPredictBtn').disabled = true;
     const statusEl = document.getElementById('digPredictStatus');
@@ -297,7 +299,9 @@ const App = (() => {
 
       Digits.recordPredictionResult(pred.digit, actualDigit);
       const acc = Digits.getAccuracy(50);
-      const accStr = acc ? ' | Accuracy (last 50): ' + acc.pct + '%' : '';
+      const symAcc = Digits.getSymbolAccuracy();
+      const accStr = acc ? ' | Last 50: ' + acc.pct + '%' : '';
+      const symStr = symAcc ? ' | ' + symAcc.total + ' preds: ' + symAcc.pct + '%' : '';
 
       setTimeout(() => {
         resultEl.textContent = actualDigit;
@@ -305,7 +309,7 @@ const App = (() => {
         statusEl.textContent = correct ? '✓ Correct' : '✗ Incorrect';
         infoEl.innerHTML = '<div class="font-semibold text-xs md:text-sm mb-2 ' + (correct ? 'text-green-400' : 'text-red-400') + '">' +
           (correct ? '✓ Correct!' : '✗ Incorrect') + ' — ' + resultLabel + '</div>' +
-          '<div class="text-gray-600 text-[11px] md:text-xs">Actual digit: ' + actualDigit + accStr + '</div>' +
+          '<div class="text-gray-600 text-[11px] md:text-xs">Actual digit: ' + actualDigit + accStr + symStr + '</div>' +
           '<div class="text-gray-600 text-[11px] md:text-xs leading-relaxed mt-2">' + pred.reasons.join('<br>') + '</div>' +
           '<div class="text-gray-600 text-[11px] md:text-xs mt-2">Confidence: ' + pred.confidence + '%</div>';
       }, 800);
