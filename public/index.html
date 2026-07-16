@@ -2,45 +2,60 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Market Analyzer</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
 <link rel="stylesheet" href="/css/style.css">
 <script>/*__CONFIG__*/</script>
 </head>
-<body class="bg-[#07070d] text-gray-300 font-['Inter'] antialiased">
-<div id="app" class="h-screen w-screen flex overflow-hidden">
+<body class="bg-[#07070d] text-gray-300 font-['Inter'] antialiased select-none">
+
+<div id="app" class="h-dvh w-screen flex overflow-hidden">
+
+  <!-- OVERLAY -->
+  <div id="sidebarOverlay" class="fixed inset-0 bg-black/60 z-40 hidden" onclick="toggleSidebar()"></div>
 
   <!-- SIDEBAR -->
-  <nav id="sidebar" class="w-52 bg-[#0a0a12] border-r border-[#14141f] flex flex-col flex-shrink-0 z-30">
-    <div class="h-11 flex items-center px-4 border-b border-[#14141f] gap-2.5">
-      <div class="w-6 h-6 rounded bg-blue-700 flex items-center justify-center text-white text-[10px] font-bold">MA</div>
-      <span class="text-xs font-semibold text-gray-200">Market Analyzer</span>
+  <nav id="sidebar" class="fixed top-0 left-0 z-50 h-full w-64 md:w-56 bg-[#0b0b14] border-r border-[#1a1a2e] flex flex-col transition-transform duration-300 -translate-x-full">
+    <div class="h-12 flex items-center px-4 border-b border-[#1a1a2e] gap-3">
+      <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center text-white text-[11px] font-bold shadow-sm shadow-blue-900/40">MA</div>
+      <span class="text-sm font-semibold text-gray-200 tracking-wide">Analyzer</span>
+      <button onclick="toggleSidebar()" class="ml-auto text-gray-600 hover:text-gray-300 text-lg leading-none cursor-pointer transition-colors">&times;</button>
     </div>
-    <div class="flex-1 overflow-y-auto custom-scroll px-2 py-3 space-y-0.5">
-      <a href="#" data-page="dashboard" class="nav-link active"><svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="7" width="3" height="8" rx=".5"/><rect x="6.5" y="4" width="3" height="11" rx=".5"/><rect x="12" y="1" width="3" height="14" rx=".5"/></svg><span>Analysis</span></a>
-      <a href="#" data-page="digits" class="nav-link"><svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="8" y="11" text-anchor="middle" font-size="8" font-weight="700" fill="currentColor">#</text></svg><span>Digits</span></a>
-      <a href="#" data-page="markets" class="nav-link"><svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor"><path d="M1 3h14v1H1V3zm0 3h14v1H1V6zm0 3h14v1H1V9zm0 3h14v1H1v-1z"/></svg><span>Markets</span></a>
-      <a href="#" data-page="history" class="nav-link"><svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M8 4v4l2.5 1.5"/></svg><span>History</span></a>
-      <a href="#" data-page="settings" class="nav-link"><svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M8 1v2M8 13v2M2.5 2.5L4 4M12 12l1.5 1.5M1 8h2M13 8h2M2.5 13.5L4 12M12 4l1.5-1.5"/></svg><span>Settings</span></a>
+    <div class="flex-1 overflow-y-auto custom-scroll px-3 py-4 space-y-1">
+      <a href="#" data-page="dashboard" class="nav-link active">
+        <svg class="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="7" width="3" height="8" rx=".5"/><rect x="6.5" y="4" width="3" height="11" rx=".5"/><rect x="12" y="1" width="3" height="14" rx=".5"/></svg>
+        <span>Chart</span>
+      </a>
+      <a href="#" data-page="digits" class="nav-link">
+        <svg class="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.3"/><text x="8" y="11.5" text-anchor="middle" font-size="9" font-weight="700" fill="currentColor">#</text></svg>
+        <span>Digits</span>
+      </a>
+    </div>
+    <div class="px-4 py-3 border-t border-[#1a1a2e]">
+      <div class="text-[10px] text-gray-700 leading-relaxed">v1.0 — Real-time analysis</div>
     </div>
   </nav>
 
   <!-- MAIN -->
   <div class="flex-1 flex flex-col min-w-0">
 
-    <!-- Top bar -->
-    <header class="h-10 bg-[#0a0a12] border-b border-[#14141f] flex items-center px-3 gap-2 flex-shrink-0">
-      <div class="flex items-center gap-2 flex-1">
-        <select id="marketSelect" class="bg-[#14141f] border border-[#1c1c2e] rounded px-2 py-1 text-[11px] text-gray-300 focus:outline-none focus:border-blue-700">
+    <!-- TOP BAR -->
+    <header class="h-11 md:h-10 bg-[#0b0b14] border-b border-[#1a1a2e] flex items-center px-2 md:px-3 gap-1.5 md:gap-2 flex-shrink-0">
+      <button onclick="toggleSidebar()" class="text-gray-500 hover:text-gray-300 cursor-pointer p-1.5 md:p-1 leading-none transition-colors rounded hover:bg-[#14142a]" title="Menu">
+        <svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>
+      </button>
+
+      <div class="flex items-center gap-1.5 md:gap-2 flex-1 overflow-x-auto scrollbar-none">
+        <select id="marketSelect" class="ctrl-select">
           <optgroup label="Volatility">
-            <option value="R_10">Volatility 10</option>
-            <option value="R_25">Volatility 25</option>
-            <option value="R_50">Volatility 50</option>
-            <option value="R_75" selected>Volatility 75</option>
-            <option value="R_100">Volatility 100</option>
+            <option value="R_10">Vol 10</option>
+            <option value="R_25">Vol 25</option>
+            <option value="R_50">Vol 50</option>
+            <option value="R_75" selected>Vol 75</option>
+            <option value="R_100">Vol 100</option>
           </optgroup>
           <optgroup label="Boom & Crash">
             <option value="BOOM300">Boom 300</option>
@@ -57,7 +72,7 @@
             <option value="frxGBPUSD">GBP/USD</option>
           </optgroup>
         </select>
-        <select id="timeframeSelect" class="bg-[#14141f] border border-[#1c1c2e] rounded px-2 py-1 text-[11px] text-gray-300 focus:outline-none focus:border-blue-700">
+        <select id="timeframeSelect" class="ctrl-select w-16 md:w-auto">
           <option value="60">1m</option>
           <option value="300">5m</option>
           <option value="900">15m</option>
@@ -65,207 +80,126 @@
           <option value="3600" selected>1h</option>
           <option value="14400">4h</option>
         </select>
-        <select id="chartType" class="bg-[#14141f] border border-[#1c1c2e] rounded px-2 py-1 text-[11px] text-gray-300 focus:outline-none focus:border-blue-700">
+        <select id="chartType" class="ctrl-select w-20 md:w-auto">
           <option value="candle">Candles</option>
           <option value="line">Line</option>
           <option value="area">Area</option>
         </select>
       </div>
-      <div class="flex items-center gap-3 text-[11px] text-gray-600">
-        <span id="connStatus"><span class="status-dot bg-gray-600"></span>Offline</span>
-        <span id="priceDisplay" class="text-xs font-semibold text-gray-300 mono">—</span>
+
+      <div class="flex items-center gap-2 md:gap-3 text-[11px] text-gray-600 flex-shrink-0 ml-1">
+        <span id="connStatus" class="flex items-center gap-1.5"><span class="status-dot bg-gray-600"></span><span class="hidden sm:inline">Offline</span></span>
+        <span id="priceDisplay" class="text-xs font-semibold text-gray-300 mono tabular-nums">—</span>
       </div>
     </header>
 
-    <!-- CONTENT -->
-    <div class="flex-1 flex min-h-0">
-      <!-- Chart area -->
-      <div class="flex-1 flex flex-col min-w-0">
-        <div id="chartContainer" class="flex-1 bg-[#07070d] relative min-h-[200px]"></div>
+    <!-- CHART AREA -->
+    <div class="flex-1 flex flex-col min-h-0 relative">
+      <div id="chartContainer" class="flex-1 bg-[#07070d] min-h-[150px]"></div>
 
-        <!-- Analysis report panel -->
-        <div id="reportPanel" class="h-[calc(100%-200px)] min-h-[300px] bg-[#0a0a12] border-t border-[#14141f] overflow-y-auto custom-scroll">
-          <!-- Analysis pipeline overlay -->
-          <div id="analysisPipeline" class="hidden p-6">
-            <div class="max-w-lg mx-auto space-y-3">
-              <div class="text-xs text-gray-500 mb-4">Analyzing <span id="analysisMarket" class="text-gray-300">R_75</span> on <span id="analysisTF" class="text-gray-300">1h</span></div>
-              <div class="step-item" data-step="download"><div class="step-pulse"></div><span class="step-label">Downloading market data</span></div>
-              <div class="step-item" data-step="indicators"><div class="step-pulse"></div><span class="step-label">Calculating indicators</span></div>
-              <div class="step-item" data-step="sr"><div class="step-pulse"></div><span class="step-label">Detecting support & resistance</span></div>
-              <div class="step-item" data-step="patterns"><div class="step-pulse"></div><span class="step-label">Identifying candlestick patterns</span></div>
-              <div class="step-item" data-step="volatility"><div class="step-pulse"></div><span class="step-label">Measuring volatility</span></div>
-              <div class="step-item" data-step="trend"><div class="step-pulse"></div><span class="step-label">Evaluating trend strength</span></div>
-              <div class="step-item" data-step="signal"><div class="step-pulse"></div><span class="step-label">Generating signals</span></div>
-              <div class="step-item" data-step="final"><div class="step-pulse"></div><span class="step-label">Producing final analysis</span></div>
-            </div>
-          </div>
-
-          <!-- Report content -->
-          <div id="reportContent" class="p-4 space-y-4">
-            <!-- Market Health Scores -->
-            <section id="reportHealth" class="report-section hidden">
-              <div class="section-header">Market Health</div>
-              <div id="healthScores" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
-              <div id="healthExplanation" class="text-xs text-gray-600 mt-2 leading-relaxed"></div>
-            </section>
-
-            <!-- Market Summary -->
-            <section id="reportSummary" class="report-section hidden">
-              <div class="section-header">Market Summary</div>
-              <div id="summaryText" class="text-xs text-gray-400 leading-relaxed space-y-1"></div>
-              <div id="summaryInvalidation" class="mt-2 p-2.5 bg-[#0d0d1a] border border-[#1c1c2e] rounded text-[11px] text-gray-500"></div>
-            </section>
-
-            <!-- Signal Report -->
-            <section id="reportSignal" class="report-section hidden">
-              <div class="section-header">Signal Report</div>
-              <div id="signalReportBody" class="bg-[#0d0d1a] border border-[#1c1c2e] rounded-lg p-3"></div>
-            </section>
-
-            <!-- Technical Analysis -->
-            <section id="reportIndicators" class="report-section hidden">
-              <div class="section-header">Technical Analysis</div>
-              <div id="indicatorReports" class="grid grid-cols-1 md:grid-cols-2 gap-2"></div>
-            </section>
-
-            <!-- Pattern Recognition -->
-            <section id="reportPatterns" class="report-section hidden">
-              <div class="section-header">Pattern Recognition</div>
-              <div id="patternReportBody" class="space-y-2"></div>
-            </section>
-
-            <!-- Risk Analysis -->
-            <section id="reportRisk" class="report-section hidden">
-              <div class="section-header">Risk Analysis</div>
-              <div id="riskReportBody" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
-            </section>
-          </div>
-        </div>
+      <!-- SIGNAL BAR -->
+      <div id="signalBar" class="h-9 md:h-8 bg-[#0b0b14] border-t border-[#1a1a2e] flex items-center px-3 md:px-4 gap-3 text-xs flex-shrink-0 overflow-x-auto scrollbar-none">
+        <span id="signalIndicator" class="text-gray-600 whitespace-nowrap">Waiting for data...</span>
+        <span id="signalConfidence" class="text-gray-600 whitespace-nowrap"></span>
+        <span id="signalVolatility" class="text-gray-600 ml-auto whitespace-nowrap"></span>
       </div>
     </div>
 
-    <!-- Footer -->
-    <footer class="h-5 bg-[#08080c] border-t border-[#14141f] flex items-center px-3 text-[9px] text-gray-700 gap-3 flex-shrink-0">
-      <span>Market Analyzer v1</span>
-      <span class="w-px h-2 bg-[#14141f]"></span>
+    <!-- FOOTER -->
+    <footer class="h-5 bg-[#08080e] border-t border-[#1a1a2e] flex items-center px-3 md:px-4 text-[9px] text-gray-700 gap-2 md:gap-3 flex-shrink-0 overflow-hidden">
+      <span class="hidden xs:inline">Market Analyzer</span>
+      <span class="w-px h-2 bg-[#1a1a2e] hidden xs:inline"></span>
       <span id="footerMarket" class="text-gray-600">R_75</span>
-      <span class="w-px h-2 bg-[#14141f]"></span>
+      <span class="w-px h-2 bg-[#1a1a2e]"></span>
       <span id="footerCandles">0 candles</span>
-      <span class="ml-auto" id="footerTime">—</span>
+      <span class="w-px h-2 bg-[#1a1a2e]"></span>
+      <span id="footerTime">—</span>
     </footer>
   </div>
 </div>
 
-<!-- MARKETS PAGE (overlay) -->
-<section id="page-markets" class="page hidden fixed inset-0 bg-[#07070d] z-40 overflow-y-auto custom-scroll p-6">
-  <div class="flex items-center justify-between mb-5"><h2 class="text-xs font-semibold text-gray-200">Markets</h2><button class="page-close text-gray-600 hover:text-gray-400 text-lg cursor-pointer">&times;</button></div>
-  <div id="marketsGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-2"></div>
-</section>
-
-<!-- HISTORY PAGE (overlay) -->
-<section id="page-history" class="page hidden fixed inset-0 bg-[#07070d] z-40 overflow-y-auto custom-scroll p-6">
-  <div class="flex items-center justify-between mb-4"><h2 class="text-xs font-semibold text-gray-200">Signal History</h2><button class="page-close text-gray-600 hover:text-gray-400 text-lg cursor-pointer">&times;</button></div>
-  <div id="signalHistoryTable" class="w-full">
-    <div class="grid grid-cols-[80px_1fr_60px_70px_70px_60px] text-[9px] text-gray-600 uppercase border-b border-[#14141f] pb-2 mb-2">
-      <span>Time</span><span>Signal</span><span>Confidence</span><span>Entry</span><span>SL</span><span>Result</span>
-    </div>
-    <div id="signalHistoryBody" class="text-xs text-gray-600">No signal history yet.</div>
+<!-- DIGITS PAGE -->
+<section id="page-digits" class="page hidden fixed inset-0 bg-[#07070d] z-40 overflow-y-auto custom-scroll">
+  <div class="sticky top-0 z-10 bg-[#07070d]/95 backdrop-blur-sm border-b border-[#1a1a2e] flex items-center justify-between px-4 md:px-6 h-11">
+    <h2 class="text-sm font-semibold text-gray-200">Digits Analysis</h2>
+    <button class="page-close text-gray-500 hover:text-gray-300 text-lg cursor-pointer transition-colors">&times;</button>
   </div>
-</section>
 
-<!-- SETTINGS PAGE (overlay) -->
-<section id="page-settings" class="page hidden fixed inset-0 bg-[#07070d] z-40 overflow-y-auto custom-scroll p-6">
-  <div class="max-w-lg">
-    <div class="flex items-center justify-between mb-5"><h2 class="text-xs font-semibold text-gray-200">Settings</h2><button class="page-close text-gray-600 hover:text-gray-400 text-lg cursor-pointer">&times;</button></div>
-    <div class="space-y-4">
-      <div class="bg-[#0d0d1a] border border-[#1c1c2e] rounded-lg p-4">
-        <label class="text-[10px] text-gray-600 block mb-0.5">Connection</label>
-        <div id="settingsStatus" class="text-xs text-green-500">Auto-connecting...</div>
+  <div class="p-4 md:p-6 space-y-4 md:space-y-5 max-w-6xl mx-auto">
+
+    <!-- Analysis Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
+      <div class="dig-card">
+        <div class="dig-card-title">Over / Under</div>
+        <div id="digOverUnder" class="text-sm text-gray-500">Collecting data...</div>
       </div>
-      <div class="bg-[#0d0d1a] border border-[#1c1c2e] rounded-lg p-4">
-        <div class="text-[10px] text-gray-600 mb-1">Log</div>
-        <div id="logPanel" class="bg-[#07070d] rounded p-2 text-[10px] font-mono text-gray-700 h-40 overflow-y-auto leading-relaxed custom-scroll"></div>
-        <div class="flex gap-2 mt-2">
-          <button id="clearLogBtn" class="text-[9px] bg-[#14141f] text-gray-600 px-2 py-1 rounded">Clear</button>
-        </div>
+      <div class="dig-card">
+        <div class="dig-card-title">Even / Odd</div>
+        <div id="digEvenOdd" class="text-sm text-gray-500">Collecting data...</div>
+      </div>
+      <div class="dig-card">
+        <div class="dig-card-title">Matches / Differs</div>
+        <div id="digMatchesDiffers" class="text-sm text-gray-500">Collecting data...</div>
       </div>
     </div>
+
+    <!-- Prediction Controls -->
+    <div class="dig-card">
+      <div class="dig-card-title mb-4">Predict Next Digit</div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-3 mb-3">
+        <select id="digMarketSelect" class="ctrl-select text-xs md:text-sm">
+          <option value="R_10">R_10</option>
+          <option value="R_25">R_25</option>
+          <option value="R_50">R_50</option>
+          <option value="R_75" selected>R_75</option>
+          <option value="R_100">R_100</option>
+          <option value="BOOM300">BOOM300</option>
+          <option value="BOOM500">BOOM500</option>
+          <option value="CRASH300">CRASH300</option>
+          <option value="CRASH500">CRASH500</option>
+        </select>
+        <select id="digPredType" class="ctrl-select text-xs md:text-sm">
+          <option value="matchesdiffers">Match / Differ</option>
+          <option value="overunder">Over / Under</option>
+          <option value="evenodd">Even / Odd</option>
+        </select>
+        <select id="digStrategy" class="ctrl-select text-xs md:text-sm">
+          <option value="balanced">Balanced</option>
+          <option value="aggressive">Aggressive</option>
+          <option value="conservative">Conservative</option>
+        </select>
+        <button id="digPredictBtn" class="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs md:text-sm font-semibold px-3 py-2 rounded-lg transition-all duration-150 shadow-sm shadow-blue-900/30">Predict</button>
+      </div>
+      <div id="digPredictStatus" class="text-xs text-gray-500">Select a market and prediction type, then click Predict</div>
+    </div>
+
+    <!-- Result -->
+    <div class="dig-card text-center">
+      <div class="dig-card-title mb-4">Result</div>
+      <div id="digResultDisplay" class="text-7xl sm:text-8xl font-bold mono text-gray-700 leading-none mb-4">—</div>
+      <div id="digResultInfo" class="text-xs md:text-sm text-gray-500 max-w-lg mx-auto"></div>
+    </div>
+
+    <!-- Digit Frequency + Transitions -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+      <div class="dig-card">
+        <div class="dig-card-title">Digit Frequency</div>
+        <div id="digHeatmap" class="grid grid-cols-5 gap-1.5 md:gap-2"></div>
+      </div>
+      <div class="dig-card">
+        <div class="dig-card-title">Transition Probabilities</div>
+        <div id="digTransitions" class="text-xs text-gray-500">Collecting data...</div>
+      </div>
+    </div>
   </div>
 </section>
-
-<!-- DIGITS PAGE (overlay) -->
-<section id="page-digits" class="page hidden fixed inset-0 bg-[#07070d] z-40 overflow-y-auto custom-scroll p-6">
-  <div class="flex items-center justify-between mb-5"><h2 class="text-xs font-semibold text-gray-200">Digits Analysis & Probability</h2><button class="page-close text-gray-600 hover:text-gray-400 text-lg cursor-pointer">&times;</button></div>
-
-  <!-- Summary stats bar -->
-  <div class="grid grid-cols-4 gap-3 mb-4" id="digitsSummaryBar">
-    <div class="bg-[#0d0d1a] border border-[#1c1c2e] rounded-lg p-3"><div class="text-[9px] text-gray-600 uppercase tracking-wider">Ticks Stored</div><div id="digTotalTicks" class="text-lg font-bold mono text-gray-300">0</div></div>
-    <div class="bg-[#0d0d1a] border border-[#1c1c2e] rounded-lg p-3"><div class="text-[9px] text-gray-600 uppercase tracking-wider">Mean Digit</div><div id="digMeanDigit" class="text-lg font-bold mono text-gray-300">—</div></div>
-    <div class="bg-[#0d0d1a] border border-[#1c1c2e] rounded-lg p-3"><div class="text-[9px] text-gray-600 uppercase tracking-wider">Uniformity</div><div id="digUniformity" class="text-lg font-bold mono text-gray-300">—</div></div>
-    <div class="bg-[#0d0d1a] border border-[#1c1c2e] rounded-lg p-3"><div class="text-[9px] text-gray-600 uppercase tracking-wider">Volatility</div><div id="digVolatility" class="text-lg font-bold mono text-gray-300">—</div></div>
-  </div>
-
-  <!-- Live tick stream -->
-  <div class="bg-[#0d0d1a] border border-[#1c1c2e] rounded-lg p-3 mb-4">
-    <div class="text-[9px] text-gray-600 uppercase tracking-wider mb-2">Live Tick Stream</div>
-    <div id="digTickStream" class="flex gap-1 overflow-x-auto custom-scroll pb-1" style="min-height:32px"></div>
-  </div>
-
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-    <!-- Frequency heatmap -->
-    <div class="bg-[#0d0d1a] border border-[#1c1c2e] rounded-lg p-3">
-      <div class="text-[9px] text-gray-600 uppercase tracking-wider mb-2">Digit Frequency (last 200)</div>
-      <div id="digHeatmap" class="grid grid-cols-5 gap-1.5"></div>
-    </div>
-
-    <!-- Over/Under -->
-    <div class="bg-[#0d0d1a] border border-[#1c1c2e] rounded-lg p-3">
-      <div class="text-[9px] text-gray-600 uppercase tracking-wider mb-2">Over / Under</div>
-      <div id="digOverUnder" class="text-xs text-gray-600">Collecting data...</div>
-    </div>
-
-    <!-- Even/Odd -->
-    <div class="bg-[#0d0d1a] border border-[#1c1c2e] rounded-lg p-3">
-      <div class="text-[9px] text-gray-600 uppercase tracking-wider mb-2">Even / Odd</div>
-      <div id="digEvenOdd" class="text-xs text-gray-600">Collecting data...</div>
-    </div>
-  </div>
-
-  <!-- Matches/Differs + Recommendations -->
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-    <div class="bg-[#0d0d1a] border border-[#1c1c2e] rounded-lg p-3">
-      <div class="text-[9px] text-gray-600 uppercase tracking-wider mb-2">Matches / Differs</div>
-      <div id="digMatchesDiffers" class="text-xs text-gray-600">Collecting data...</div>
-    </div>
-    <div class="bg-[#0d0d1a] border border-[#1c1c2e] rounded-lg p-3">
-      <div class="text-[9px] text-gray-600 uppercase tracking-wider mb-2">Active Recommendations</div>
-      <div id="digRecommendations" class="text-xs text-gray-600">Collecting data...</div>
-    </div>
-  </div>
-
-  <!-- Transition matrix -->
-  <div class="bg-[#0d0d1a] border border-[#1c1c2e] rounded-lg p-3 mb-4">
-    <div class="text-[9px] text-gray-600 uppercase tracking-wider mb-2">Digit Transition Probabilities (last 100)</div>
-    <div id="digTransitions" class="text-xs text-gray-600">Collecting data...</div>
-  </div>
-</section>
-
-<!-- Signal Modal -->
-<div id="signalModal" class="fixed inset-0 bg-black/70 hidden items-center justify-center z-50" style="display:none">
-  <div class="bg-[#0d0d1a] border border-[#1c1c2e] rounded-lg w-[420px] max-h-[80vh] overflow-y-auto custom-scroll p-5">
-    <div class="flex items-center justify-between mb-4"><h3 id="modalTitle" class="text-xs font-semibold text-gray-200">Signal Detail</h3><button id="modalClose" class="text-gray-600 hover:text-gray-400 text-base cursor-pointer">&times;</button></div>
-    <div id="modalBody" class="space-y-2.5 text-xs text-gray-500"></div>
-  </div>
-</div>
 
 <script src="/js/api.js"></script>
 <script src="/js/indicators.js"></script>
 <script src="/js/patterns.js"></script>
 <script src="/js/signals.js"></script>
-<script src="/js/prediction.js"></script>
 <script src="/js/chart.js"></script>
 <script src="/js/digits.js"></script>
-<script src="/js/reports.js"></script>
 <script src="/js/app.js"></script>
 </body>
 </html>

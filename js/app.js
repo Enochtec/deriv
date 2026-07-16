@@ -1,16 +1,20 @@
+// ── Sidebar Toggle ──
+window.toggleSidebar = function() {
+  document.body.classList.toggle('sidebar-open');
+};
+
 const App = (() => {
   let candles = [];
-  let currentSignal = null;
-  let currentPatterns = [];
-  let analysisTimer = null;
   let connected = false;
   let lastTick = 0;
   let loading = false;
-  let analyzing = false;
   let initialLoadDone = false;
+  let digCallbacks = [];
+  let digitsVisible = false;
+  let digitsCache = null;
+  let digitsCacheTime = 0;
 
   const TF_MAP = { 60: '1m', 120: '2m', 300: '5m', 900: '15m', 1800: '30m', 3600: '1h', 14400: '4h', 86400: '1d' };
-  const SYMBOLS = ['R_10','R_25','R_50','R_75','R_100','BOOM300','BOOM500','BOOM1000','CRASH300','CRASH500','CRASH1000','JD50','STPRNG','frxEURUSD','frxGBPUSD'];
 
   function init() {
     const cfg = window.__DC__;
@@ -19,23 +23,20 @@ const App = (() => {
     document.querySelectorAll('.nav-link[data-page]').forEach(el => {
       el.addEventListener('click', (e) => {
         e.preventDefault();
+        closeSidebar();
         const page = el.dataset.page;
-        if (page === 'dashboard') {
-          document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
-          return;
-        }
         document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+        if (page === 'dashboard') { digitsVisible = false; return; }
         const target = document.getElementById('page-' + page);
         if (target) target.classList.remove('hidden');
         document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
         el.classList.add('active');
-        if (page === 'markets') renderMarketsPage();
-        if (page === 'history') renderHistoryPage();
-        if (page === 'digits') renderDigitsDashboard();
+        if (page === 'digits') { digitsVisible = true; renderDigitsDashboard(); }
       });
     });
     document.querySelectorAll('.page-close').forEach(btn => {
       btn.addEventListener('click', () => {
+        digitsVisible = false;
         document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
         document.querySelector('.nav-link[data-page="dashboard"]').click();
       });
@@ -54,9 +55,7 @@ const App = (() => {
     tfSel.addEventListener('change', () => { loadCandles(marketSel.value, +tfSel.value); });
     chartTypeSel.addEventListener('change', () => { ChartModule.setChartType(chartTypeSel.value); });
 
-    document.getElementById('clearLogBtn').addEventListener('click', () => {
-      document.getElementById('logPanel').innerHTML = '';
-    });
+    document.getElementById('digPredictBtn').addEventListener('click', startDigitPrediction);
 
     ChartModule.init(document.getElementById('chartContainer'));
 
@@ -68,21 +67,23 @@ const App = (() => {
 
     setTimeout(() => {
       if (!connected && !initialLoadDone) {
-        log('Still not connected after 10s — check console');
+        log('Still not connected after 10s');
         document.getElementById('connStatus').innerHTML = '<span class="status-dot bg-red-500"></span>Timeout';
       }
     }, 10000);
-
-    analysisTimer = setInterval(runAnalysis, 3000);
 
     setInterval(() => {
       document.getElementById('footerTime').textContent = new Date().toLocaleTimeString();
     }, 1000);
 
-    // Digits auto-refresh
-    setInterval(renderDigitsDashboard, 2000);
+    setInterval(() => { if (digitsVisible) renderDigitsDashboard(); }, 3000);
+    setInterval(updateSignalBar, 3000);
 
     log('Initialized');
+  }
+
+  function closeSidebar() {
+    document.body.classList.remove('sidebar-open');
   }
 
   function onStatus(status) {
@@ -90,7 +91,6 @@ const App = (() => {
     const el = document.getElementById('connStatus');
     if (status.connected) {
       el.innerHTML = '<span class="status-dot bg-green-500"></span>Online';
-      document.getElementById('settingsStatus').textContent = 'Connected';
       if (!initialLoadDone) {
         initialLoadDone = true;
         const ms = document.getElementById('marketSelect');
@@ -100,10 +100,8 @@ const App = (() => {
       }
     } else if (status.connecting) {
       el.innerHTML = '<span class="status-dot bg-yellow-500"></span>Connecting...';
-      document.getElementById('settingsStatus').textContent = 'Connecting...';
     } else {
       el.innerHTML = '<span class="status-dot bg-yellow-500"></span>Reconnecting...';
-      document.getElementById('settingsStatus').textContent = 'Reconnecting...';
     }
   }
 
@@ -111,6 +109,7 @@ const App = (() => {
     lastTick = tick.quote || tick.tick;
     document.getElementById('priceDisplay').textContent = lastTick.toFixed(4);
     Digits.storeTick(lastTick);
+    if (digCallbacks.length > 0) { const cbs = digCallbacks.slice(); digCallbacks = []; cbs.forEach(fn => fn(Digits.getLastDigit(lastTick))); }
     if (candles.length > 0) {
       const last = candles[candles.length - 1];
       last.close = tick.quote;
@@ -141,309 +140,87 @@ const App = (() => {
     loading = false;
   }
 
-  // Analysis pipeline
-  function runAnalysis() {
-    if (analyzing || candles.length < 30) return;
-    analyzing = true;
-
-    const steps = ['download','indicators','sr','patterns','volatility','trend','signal','final'];
-    const labels = {
-      download: 'Downloading market data',
-      indicators: 'Calculating indicators',
-      sr: 'Detecting support & resistance',
-      patterns: 'Identifying candlestick patterns',
-      volatility: 'Measuring volatility',
-      trend: 'Evaluating trend strength',
-      signal: 'Generating signals',
-      final: 'Producing final analysis',
-    };
-
-    showPipeline(steps, labels);
-
-    // Run actual analysis after brief pipeline display
-    setTimeout(() => {
-      const signal = Signals.evaluate(candles);
-      if (signal) {
-        currentSignal = signal;
-        currentPatterns = signal.patterns || [];
-        Signals.addHistory(signal);
-        renderReport(signal);
-        showReport();
-        log('Signal: ' + signal.type + ' (' + signal.confidence + '%)');
-      }
-      hidePipeline();
-      analyzing = false;
-    }, 2000);
-  }
-
-  function showPipeline(steps, labels) {
-    const pipeEl = document.getElementById('analysisPipeline');
-    const reportEl = document.getElementById('reportContent');
-    pipeEl.classList.remove('hidden');
-    reportEl.classList.add('hidden');
-
-    steps.forEach((s, i) => {
-      const el = pipeEl.querySelector('[data-step="' + s + '"]');
-      if (!el) return;
-      el.className = 'step-item';
-      const label = el.querySelector('.step-label');
-      if (label) label.textContent = labels[s];
-      setTimeout(() => {
-        el.className = 'step-item active';
-        setTimeout(() => {
-          el.className = 'step-item done';
-          const check = el.querySelector('.step-label');
-          if (check) check.textContent = labels[s] + ' ✓';
-        }, Math.max(100, 600 - i * 50));
-      }, i * 120);
-    });
-  }
-
-  function hidePipeline() {
-    document.getElementById('analysisPipeline').classList.add('hidden');
-  }
-
-  function showReport() {
-    document.getElementById('reportContent').classList.remove('hidden');
-  }
-
-  // Report rendering
-  function renderReport(signal) {
+  function updateSignalBar() {
+    if (candles.length < 30) return;
+    const signal = Signals.evaluate(candles);
     if (!signal) return;
-
-    const health = Reports.healthScores(signal, candles);
-    const summary = Reports.marketSummary(signal, candles);
-    const sigRep = Reports.signalReport(signal);
-    const indRep = Reports.indicatorReports(signal, candles);
-    const patRep = Reports.patternReport(signal.patterns);
-    const risk = Reports.riskAnalysis(signal, candles);
-
-    renderHealth(health);
-    renderSummary(summary);
-    renderSignalReport(sigRep);
-    renderIndicatorsReport(indRep);
-    renderPatternReport(patRep);
-    renderRisk(risk);
+    Signals.addHistory(signal);
+    const el = document.getElementById('signalIndicator');
+    el.className = 'font-semibold whitespace-nowrap';
+    const c = signal.type === 'BUY' ? 'text-green-400' : signal.type === 'SELL' ? 'text-red-400' : 'text-yellow-400';
+    el.innerHTML = '<span class="' + c + '">' + signal.type + '</span>';
+    document.getElementById('signalConfidence').textContent = signal.confidence + '% confidence';
+    document.getElementById('signalVolatility').textContent = 'ADX: ' + signal.indicators.adx.toFixed(1) + ' | RSI: ' + signal.indicators.rsi.toFixed(1);
   }
 
-  function renderHealth(health) {
-    const section = document.getElementById('reportHealth');
-    const grid = document.getElementById('healthScores');
-    const expl = document.getElementById('healthExplanation');
-    if (!health) { section.classList.add('hidden'); return; }
-    section.classList.remove('hidden');
-
-    grid.innerHTML = health.scores.map(s =>
-      '<div class="score-card">' +
-      '<div class="score-label">' + s.label + '</div>' +
-      '<div class="score-value" style="color:' + Reports.getScoreColor(s.value) + '">' + s.value + '</div>' +
-      '<div class="score-bar"><div class="score-bar-fill" style="width:' + s.value + '%;background:' + Reports.getScoreColor(s.value) + '"></div></div>' +
-      '<div class="score-desc">' + s.desc + '</div></div>'
-    ).join('');
-    expl.textContent = health.explanation;
-  }
-
-  function renderSummary(summary) {
-    const section = document.getElementById('reportSummary');
-    const textEl = document.getElementById('summaryText');
-    const invEl = document.getElementById('summaryInvalidation');
-    if (!summary) { section.classList.add('hidden'); return; }
-    section.classList.remove('hidden');
-
-    textEl.innerHTML = summary.summary.map(s => '<div class="summary-bullet">' + s + '</div>').join('');
-    invEl.innerHTML = '<div class="invalidation-label">Invalidation Conditions</div><div class="text-gray-600">' + summary.invalidation + '</div>';
-  }
-
-  function renderSignalReport(sig) {
-    const section = document.getElementById('reportSignal');
-    const body = document.getElementById('signalReportBody');
-    if (!sig) { section.classList.add('hidden'); return; }
-    section.classList.remove('hidden');
-
-    const c = sig.type === 'BUY' ? '#22c55e' : sig.type === 'SELL' ? '#ef4444' : '#eab308';
-    let html = '<div style="border-left:3px solid ' + c + ';padding-left:10px;margin-bottom:10px">';
-    html += '<div style="font-size:14px;font-weight:700;color:' + c + '">' + sig.type + '</div>';
-    html += '<div style="font-size:22px;font-weight:700;font-family:JetBrains Mono,monospace;color:' + c + '">' + sig.confidence + '%</div></div>';
-
-    html += '<div class="scd-grid">';
-    html += '<span class="scd-label">Entry Zone</span><span class="scd-value">' + sig.entryZone + '</span>';
-    html += '<span class="scd-label">Stop Loss</span><span class="scd-value" style="color:#ef4444">' + sig.stopLoss + '</span>';
-    html += '<span class="scd-label">Take Profit</span><span class="scd-value" style="color:#22c55e">' + sig.takeProfit + '</span>';
-    html += '<span class="scd-label">R:R Ratio</span><span class="scd-value">1:' + sig.rr + '</span>';
-    html += '<span class="scd-label">Risk Rating</span><span class="scd-value" style="color:' + (sig.riskRating === 'High' ? '#ef4444' : sig.riskRating === 'Low' ? '#22c55e' : '#eab308') + '">' + sig.riskRating + '</span>';
-    html += '<span class="scd-label">Price</span><span class="scd-value">' + sig.price.toFixed(4) + '</span>';
-    html += '</div>';
-
-    html += '<div style="margin-top:10px;padding-top:8px;border-top:1px solid #1c1c2e">';
-    html += '<div style="font-size:9px;color:#6b7280;margin-bottom:4px">REASONS</div>';
-    sig.reasons.forEach(r => { html += '<div style="font-size:10px;color:#9ca3af;padding:2px 0">· ' + r + '</div>'; });
-    html += '</div>';
-    body.innerHTML = html;
-  }
-
-  function renderIndicatorsReport(ind) {
-    const section = document.getElementById('reportIndicators');
-    const body = document.getElementById('indicatorReports');
-    if (!ind || !ind.indicators) { section.classList.add('hidden'); return; }
-    section.classList.remove('hidden');
-
-    body.innerHTML = ind.indicators.map(i => {
-      const c = i.bullish === true ? '#22c55e' : i.bullish === false ? '#ef4444' : '#9ca3af';
-      const statusC = i.status === 'Overbought' || i.status === 'Bearish' || i.status === 'Overbought' ? '#ef4444' :
-        i.status === 'Oversold' || i.status === 'Bullish' ? '#22c55e' : '#9ca3af';
-      return '<div class="indicator-report">' +
-        '<div class="ir-header"><span class="ir-name">' + i.name + '</span><span class="ir-value" style="color:' + c + '">' + i.value + '</span></div>' +
-        '<div class="ir-status"><span style="color:' + statusC + '">' + i.status + '</span></div>' +
-        '<div class="ir-contribution">' + i.contribution + '</div></div>';
-    }).join('');
-  }
-
-  function renderPatternReport(patterns) {
-    const section = document.getElementById('reportPatterns');
-    const body = document.getElementById('patternReportBody');
-    if (!patterns || patterns.length === 0) { section.classList.add('hidden'); return; }
-    section.classList.remove('hidden');
-
-    body.innerHTML = patterns.map(p => {
-      const pc = p.type === 'bullish' ? '#22c55e' : p.type === 'bearish' ? '#ef4444' : '#9ca3af';
-      const sc = p.significance === 'high' ? '#ef4444' : p.significance === 'medium' ? '#eab308' : '#6b7280';
-      return '<div class="pattern-card">' +
-        '<div class="pc-name" style="color:' + pc + '">' + (p.type === 'bullish' ? '↑ ' : p.type === 'bearish' ? '↓ ' : '— ') + p.pattern + '</div>' +
-        '<div class="pc-detail">' + p.detail + '</div>' +
-        '<div class="pc-significance"><span style="color:' + sc + '">' + p.significance.toUpperCase() + ' significance</span></div>' +
-        '<div class="pc-significance" style="color:#6b7280">' + p.action + '</div></div>';
-    }).join('');
-  }
-
-  function renderRisk(risk) {
-    const section = document.getElementById('reportRisk');
-    const body = document.getElementById('riskReportBody');
-    if (!risk) { section.classList.add('hidden'); return; }
-    section.classList.remove('hidden');
-
-    const data = [
-      { label: 'Market Volatility', value: risk.marketVolatility, desc: 'ATR: ' + risk.atr + ' | BB: ' + risk.bbWidth },
-      { label: 'Trend Strength', value: risk.trendStrength, desc: '' },
-      { label: 'Signal Reliability', value: risk.signalReliability, desc: '' },
-      { label: 'Recommended Max Risk', value: risk.recommendedMaxRisk, desc: 'Per trade' },
-      { label: 'Uncertainty', value: risk.uncertainty, desc: '' },
-      { label: 'Patience Level', value: risk.patienceLevel, desc: 'RSI: ' + risk.rsi },
-    ];
-    body.innerHTML = data.map(d =>
-      '<div class="risk-card"><div class="rc-header">' + d.label + '</div><div class="rc-value" style="color:' + (d.value.includes('High') || d.value.includes('Wait') ? '#eab308' : d.value.includes('Low') || d.value.includes('Trade') ? '#22c55e' : '#9ca3af') + '">' + d.value + '</div>' + (d.desc ? '<div class="rc-desc">' + d.desc + '</div>' : '') + '</div>'
-    ).join('');
-  }
-
-  // ── Digits Dashboard ──
+  // ── Digits Dashboard (cached, class-based) ──
   function renderDigitsDashboard() {
-    const count = Digits.count();
-    document.getElementById('digTotalTicks').textContent = count;
-
+    if (digitsCache && Date.now() - digitsCacheTime < 1000) return;
     const sum = Digits.summary();
     if (!sum) return;
+    digitsCache = sum;
+    digitsCacheTime = Date.now();
 
-    document.getElementById('digMeanDigit').textContent = sum.mean ? sum.mean.toFixed(2) : '—';
-    document.getElementById('digUniformity').textContent = sum.uniformity.uniform ? 'Uniform' : 'Biased';
-    document.getElementById('digUniformity').style.color = sum.uniformity.uniform ? '#6b7280' : '#eab308';
-    document.getElementById('digVolatility').textContent = sum.volatility.toFixed(2);
-
-    // Tick stream
-    const recent = Digits.getTicks(30);
-    const streamEl = document.getElementById('digTickStream');
-    streamEl.innerHTML = recent.map(t => {
-      const c = t.digit > 5 ? '#22c55e' : t.digit > 3 ? '#eab308' : '#ef4444';
-      const bg = t.digit > 5 ? '#22c55e20' : t.digit > 3 ? '#eab30820' : '#ef444420';
-      return '<div class="dig-tick" style="background:' + bg + ';color:' + c + '">' + t.digit + '</div>';
-    }).join('');
-
-    // Heatmap
+    // Digit Frequency
     const freq = sum.frequencies;
     const maxFreq = Math.max(...freq.map(f => f.count), 1);
     const hmEl = document.getElementById('digHeatmap');
     hmEl.innerHTML = freq.map(f => {
       const intensity = f.count / maxFreq;
-      const r = Math.round(20 + intensity * 50);
-      const g = Math.round(20 + (1 - intensity) * 30);
-      const b = Math.round(40 + intensity * 80);
-      const c = intensity > 0.7 ? '#e8e8ed' : intensity > 0.4 ? '#9ca3af' : '#6b7280';
-      return '<div class="dig-cell" style="background:rgb(' + r + ',' + g + ',' + b + ');color:' + c + '">' + f.digit + '</div>';
+      const r = Math.round(20 + intensity * 55);
+      const g = Math.round(15 + (1 - intensity) * 25);
+      const b = Math.round(35 + intensity * 85);
+      const tc = intensity > 0.65 ? '#f0f0f5' : intensity > 0.3 ? '#b0b0bf' : '#707080';
+      return '<div class="dig-cell" style="background:rgb(' + r + ',' + g + ',' + b + ');color:' + tc + '">' + f.digit + '</div>';
     }).join('');
 
     // Over/Under
     const oa5 = Digits.overUnderAnalysis(5);
-    const oa3 = Digits.overUnderAnalysis(3);
-    const oa7 = Digits.overUnderAnalysis(7);
     const ouEl = document.getElementById('digOverUnder');
-    if (!oa5) { ouEl.textContent = 'Need more ticks (minimum 30)'; }
+    if (!oa5) { ouEl.textContent = 'Collecting data...'; }
     else {
-      let html = '';
-      [oa3, oa5, oa7].forEach(oa => {
-        if (!oa) return;
-        const c = oa.bias === 'over' ? '#22c55e' : oa.bias === 'under' ? '#ef4444' : '#9ca3af';
-        html += '<div class="dig-rec" style="border-color:' + c + '">';
-        html += '<div style="font-size:11px;font-weight:600;color:' + c + '">Over ' + oa.threshold + ' / Under ' + oa.threshold + ': <span style="font-weight:700">' + oa.estimated.split(' — ')[0] + '</span></div>';
-        html += '<div style="font-size:9px;color:#6b7280;margin-top:3px">' + oa.estimated + '</div>';
-        html += '<div style="font-size:9px;color:#6b7280;margin-top:2px">' + oa.evidence + '</div></div>';
-      });
-      ouEl.innerHTML = html;
+      const biasCls = oa5.bias === 'over' ? 'text-green-400' : oa5.bias === 'under' ? 'text-red-400' : 'text-gray-400';
+      ouEl.innerHTML =
+        '<div class="' + biasCls + ' font-mono text-base font-bold mb-1">' + oa5.over.pct.toFixed(1) + '% / ' + oa5.under.pct.toFixed(1) + '%</div>' +
+        '<div class="' + biasCls + ' text-xs mb-1.5">' + oa5.estimated + '</div>' +
+        '<div class="text-[11px] text-gray-600 leading-relaxed">' + oa5.evidence + '</div>';
     }
 
     // Even/Odd
     const eo = Digits.evenOddAnalysis();
     const eoEl = document.getElementById('digEvenOdd');
-    if (!eo) { eoEl.textContent = 'Need more ticks'; }
+    if (!eo) { eoEl.textContent = 'Collecting data...'; }
     else {
-      const ec = eo.bias === 'even' ? '#22c55e' : eo.bias === 'odd' ? '#ef4444' : '#9ca3af';
-      let html = '<div class="flex items-center gap-4 mb-2">';
-      html += '<div><div style="font-size:9px;color:#6b7280">EVEN</div><div style="font-size:16px;font-weight:700;font-family:JetBrains Mono,monospace;color:' + (eo.even.pct > 50 ? '#22c55e' : '#6b7280') + '">' + eo.even.pct.toFixed(1) + '%</div></div>';
-      html += '<div><div style="font-size:9px;color:#6b7280">ODD</div><div style="font-size:16px;font-weight:700;font-family:JetBrains Mono,monospace;color:' + (eo.odd.pct > 50 ? '#ef4444' : '#6b7280') + '">' + eo.odd.pct.toFixed(1) + '%</div></div>';
-      html += '<div style="flex:1"><div style="height:6px;background:#1c1c2e;border-radius:3px;overflow:hidden;display:flex">';
+      const biasCls = eo.bias === 'even' ? 'text-green-400' : eo.bias === 'odd' ? 'text-red-400' : 'text-gray-400';
       const ew = Math.round(eo.even.pct);
-      html += '<div style="width:' + ew + '%;background:#22c55e;border-radius:3px 0 0 3px"></div>';
-      html += '<div style="width:' + (100 - ew) + '%;background:#ef4444;border-radius:0 3px 3px 0"></div></div></div></div>';
-      html += '<div class="dig-rec" style="border-color:' + ec + '"><div style="font-size:10px;font-weight:600;color:' + ec + '">' + eo.estimated + '</div>';
-      html += '<div style="font-size:9px;color:#6b7280;margin-top:2px">Confidence: ' + eo.confidence + '% | ' + eo.alternation.description + '</div>';
-      html += '<div style="font-size:9px;color:#6b7280;margin-top:2px">' + eo.evidence + '</div></div>';
-      eoEl.innerHTML = html;
+      eoEl.innerHTML =
+        '<div class="flex items-center gap-3 mb-1.5">' +
+          '<div><div class="text-[10px] text-gray-600 mb-0.5">EVEN</div><div class="font-mono text-sm font-bold ' + (eo.even.pct > 50 ? 'text-green-400' : 'text-gray-500') + '">' + eo.even.pct.toFixed(1) + '%</div></div>' +
+          '<div><div class="text-[10px] text-gray-600 mb-0.5">ODD</div><div class="font-mono text-sm font-bold ' + (eo.odd.pct > 50 ? 'text-red-400' : 'text-gray-500') + '">' + eo.odd.pct.toFixed(1) + '%</div></div>' +
+          '<div class="flex-1"><div class="progress-bar"><div class="progress-fill bg-green-400" style="width:' + ew + '%"></div><div class="progress-fill bg-red-400" style="width:' + (100 - ew) + '%"></div></div></div>' +
+        '</div>' +
+        '<div class="' + biasCls + ' text-xs mb-1">' + eo.estimated + '</div>' +
+        '<div class="text-[11px] text-gray-600 leading-relaxed">' + eo.evidence + '</div>';
     }
 
     // Matches/Differs
     const md = Digits.matchesDiffersAnalysis();
     const mdEl = document.getElementById('digMatchesDiffers');
-    if (!md) { mdEl.textContent = 'Need more ticks'; }
+    if (!md) { mdEl.textContent = 'Collecting data...'; }
     else {
-      const mc = md.bias === 'matches' ? '#22c55e' : md.bias === 'differs' ? '#ef4444' : '#9ca3af';
-      let html = '<div class="flex items-center gap-4 mb-2">';
-      html += '<div><div style="font-size:9px;color:#6b7280">MATCHES</div><div style="font-size:16px;font-weight:700;font-family:JetBrains Mono,monospace;color:' + (md.matches.pct > 50 ? '#22c55e' : '#6b7280') + '">' + md.matches.pct.toFixed(1) + '%</div></div>';
-      html += '<div><div style="font-size:9px;color:#6b7280">DIFFERS</div><div style="font-size:16px;font-weight:700;font-family:JetBrains Mono,monospace;color:' + (md.differs.pct > 50 ? '#ef4444' : '#6b7280') + '">' + md.differs.pct.toFixed(1) + '%</div></div>';
-      html += '<div style="flex:1"><div style="height:6px;background:#1c1c2e;border-radius:3px;overflow:hidden;display:flex">';
-      html += '<div style="width:' + Math.round(md.matches.pct) + '%;background:#22c55e;border-radius:3px 0 0 3px"></div>';
-      html += '<div style="width:' + Math.round(100 - md.matches.pct) + '%;background:#ef4444;border-radius:0 3px 3px 0"></div></div></div></div>';
-      html += '<div class="dig-rec" style="border-color:' + mc + '"><div style="font-size:10px;font-weight:600;color:' + mc + '">' + md.estimated + '</div>';
-      html += '<div style="font-size:9px;color:#6b7280;margin-top:2px">Confidence: ' + md.confidence + '% | Recent: ' + md.matches.recentPct.toFixed(1) + '% matches</div>';
-      html += '<div style="font-size:9px;color:#6b7280;margin-top:2px">' + md.evidence + '</div></div>';
-      mdEl.innerHTML = html;
+      const biasCls = md.bias === 'matches' ? 'text-green-400' : md.bias === 'differs' ? 'text-red-400' : 'text-gray-400';
+      const mw = Math.round(md.matches.pct);
+      mdEl.innerHTML =
+        '<div class="flex items-center gap-3 mb-1.5">' +
+          '<div><div class="text-[10px] text-gray-600 mb-0.5">MATCH</div><div class="font-mono text-sm font-bold ' + (md.matches.pct > 50 ? 'text-green-400' : 'text-gray-500') + '">' + md.matches.pct.toFixed(1) + '%</div></div>' +
+          '<div><div class="text-[10px] text-gray-600 mb-0.5">DIFFER</div><div class="font-mono text-sm font-bold ' + (md.differs.pct > 50 ? 'text-red-400' : 'text-gray-500') + '">' + md.differs.pct.toFixed(1) + '%</div></div>' +
+          '<div class="flex-1"><div class="progress-bar"><div class="progress-fill bg-green-400" style="width:' + mw + '%"></div><div class="progress-fill bg-red-400" style="width:' + (100 - mw) + '%"></div></div></div>' +
+        '</div>' +
+        '<div class="' + biasCls + ' text-xs mb-1">' + md.estimated + '</div>' +
+        '<div class="text-[11px] text-gray-600 leading-relaxed">' + md.evidence + '</div>';
     }
 
-    // Recommendations
-    const recs = Digits.generateRecommendation();
-    const recEl = document.getElementById('digRecommendations');
-    if (recs.length === 0) { recEl.innerHTML = '<div style="color:#6b7280;font-size:10px">Insufficient data for recommendations — need 50+ ticks with clear bias.</div>'; }
-    else {
-      recEl.innerHTML = recs.map(r => {
-        const c = r.direction.startsWith('OVER') || r.direction.startsWith('EVEN') || r.direction === 'MATCHES' ? '#22c55e' :
-          r.direction.startsWith('UNDER') || r.direction.startsWith('ODD') || r.direction === 'DIFFERS' ? '#ef4444' : '#eab308';
-        const riskC = r.risk === 'Low' ? '#22c55e' : r.risk === 'Medium' ? '#eab308' : '#ef4444';
-        return '<div class="dig-rec" style="border-color:' + c + '">' +
-          '<div style="display:flex;justify-content:space-between;align-items:center">' +
-          '<span style="font-size:11px;font-weight:600;color:' + c + '">' + r.direction + '</span>' +
-          '<span style="font-size:12px;font-weight:700;font-family:JetBrains Mono,monospace;color:' + c + '">' + r.confidence + '%</span></div>' +
-          '<div style="font-size:9px;color:#6b7280;margin-top:2px">Type: ' + r.type + ' | Strength: ' + r.strength + ' | Risk: <span style="color:' + riskC + '">' + r.risk + '</span></div>' +
-          '<div style="font-size:9px;color:#6b7280;margin-top:2px">' + r.explanation + '</div></div>';
-      }).join('');
-    }
-
-    // Transition matrix
+    // Transition Matrix
     const trans = sum.transitionMat;
     const trEl = document.getElementById('digTransitions');
     if (trans && trans.length > 0) {
@@ -455,7 +232,7 @@ const App = (() => {
         row.probs.forEach(p => {
           const intensity = p.total > 0 ? Math.min(1, p.pct / 30) : 0;
           const r = Math.round(10 + intensity * 60);
-          const g = Math.round(10 + (1 - intensity) * 30);
+          const g = Math.round(10 + (1 - intensity) * 25);
           const b = Math.round(30 + intensity * 90);
           const tc = p.pct > 15 ? '#e8e8ed' : '#9ca3af';
           html += '<div class="trans-cell" style="background:rgb(' + r + ',' + g + ',' + b + ');color:' + tc + '">' + (p.pct > 0 ? p.pct.toFixed(0) : '') + '</div>';
@@ -466,30 +243,73 @@ const App = (() => {
     }
   }
 
-  // Page renderers
-  function renderMarketsPage() {
-    const grid = document.getElementById('marketsGrid');
-    grid.innerHTML = SYMBOLS.map(sym =>
-      '<div class="bg-[#0d0d1a] border border-[#1c1c2e] rounded-lg p-2.5 cursor-pointer hover:border-blue-800" onclick="document.getElementById(\'marketSelect\').value=\'' + sym + '\';document.getElementById(\'marketSelect\').dispatchEvent(new Event(\'change\'));document.querySelector(\'.page-close\').click()">' +
-      '<div class="text-xs font-semibold text-gray-200">' + sym + '</div>' +
-      '<div class="text-[9px] text-gray-600">' + (sym.startsWith('R') ? 'Volatility' : sym.startsWith('BOOM') ? 'Boom' : sym.startsWith('CRASH') ? 'Crash' : sym === 'JD50' ? 'Jump' : sym === 'STPRNG' ? 'Step Index' : 'Forex') + '</div></div>'
-    ).join('');
-  }
+  // ── Digit Prediction Handler ──
+  function startDigitPrediction() {
+    const market = document.getElementById('digMarketSelect').value;
+    const mode = document.getElementById('digPredType').value;
 
-  function renderHistoryPage() {
-    const body = document.getElementById('signalHistoryBody');
-    const history = Signals.getHistory().slice(0, 50);
-    if (history.length === 0) { body.innerHTML = '<div class="text-gray-600 text-xs">No signals yet.</div>'; return; }
-    body.innerHTML = history.map(s => {
-      const c = s.type === 'BUY' ? 'text-green-400' : s.type === 'SELL' ? 'text-red-400' : 'text-yellow-400';
-      return '<div class="grid grid-cols-[80px_1fr_60px_70px_70px_60px] text-[11px] py-1.5 border-b border-[#14141f]">' +
-        '<span class="text-gray-600">' + new Date(s.timestamp).toLocaleTimeString() + '</span>' +
-        '<span class="' + c + ' font-semibold">' + s.type + '</span>' +
-        '<span class="mono">' + s.confidence + '%</span>' +
-        '<span class="mono text-gray-300">' + (s.entryZone !== '—' ? s.entryZone : '—') + '</span>' +
-        '<span class="mono text-gray-500">' + (s.stopLoss !== '—' ? s.stopLoss : '—') + '</span>' +
-        '<span class="text-gray-600">—</span></div>';
-    }).join('');
+    // Switch market if different
+    const mainMarket = document.getElementById('marketSelect');
+    if (mainMarket.value !== market) {
+      mainMarket.value = market;
+      mainMarket.dispatchEvent(new Event('change'));
+    }
+
+    const pred = Digits.predictNextDigit();
+    if (!pred) {
+      document.getElementById('digPredictStatus').textContent = 'Not enough data — need at least 20 ticks';
+      return;
+    }
+
+    document.getElementById('digPredictBtn').disabled = true;
+    const statusEl = document.getElementById('digPredictStatus');
+    statusEl.textContent = 'Waiting for next tick...';
+
+    const resultEl = document.getElementById('digResultDisplay');
+    const infoEl = document.getElementById('digResultInfo');
+
+    resultEl.textContent = pred.digit;
+    resultEl.className = 'text-7xl sm:text-8xl font-bold mono text-yellow-400 leading-none';
+    infoEl.innerHTML = '<div class="text-yellow-400 font-semibold text-xs md:text-sm mb-2">Prediction: ' + pred.digit + '</div>' +
+      '<div class="text-gray-600 text-[11px] md:text-xs leading-relaxed">' + pred.reasons.join('<br>') + '</div>' +
+      '<div class="text-gray-600 text-[11px] md:text-xs mt-2">Confidence: ' + pred.confidence + '%</div>';
+
+    digCallbacks.push((actualDigit) => {
+      document.getElementById('digPredictBtn').disabled = false;
+      let correct = false, resultLabel = '';
+
+      if (mode === 'overunder') {
+        const ps = pred.digit > 5 ? 'OVER' : pred.digit < 5 ? 'UNDER' : 'EQUAL';
+        const as = actualDigit > 5 ? 'OVER' : actualDigit < 5 ? 'UNDER' : 'EQUAL';
+        correct = ps === as;
+        resultLabel = 'Over/Under: Predicted ' + ps + ' (' + pred.digit + ')';
+      } else if (mode === 'evenodd') {
+        const pp = pred.digit % 2 === 0 ? 'EVEN' : 'ODD';
+        const ap = actualDigit % 2 === 0 ? 'EVEN' : 'ODD';
+        correct = pp === ap;
+        resultLabel = 'Even/Odd: Predicted ' + pp + ' (' + pred.digit + ')';
+      } else {
+        const pm = pred.digit === pred.currentDigit ? 'MATCHES' : 'DIFFERS';
+        const am = actualDigit === pred.currentDigit ? 'MATCHES' : 'DIFFERS';
+        correct = pm === am;
+        resultLabel = 'Matches/Differs: Predicted ' + pm + ' (' + pred.digit + ')';
+      }
+
+      Digits.recordPredictionResult(pred.digit, actualDigit);
+      const acc = Digits.getAccuracy(50);
+      const accStr = acc ? ' | Accuracy (last 50): ' + acc.pct + '%' : '';
+
+      setTimeout(() => {
+        resultEl.textContent = actualDigit;
+        resultEl.className = 'text-7xl sm:text-8xl font-bold mono leading-none digit-pulse ' + (correct ? 'text-green-400' : 'text-red-400');
+        statusEl.textContent = correct ? '✓ Correct' : '✗ Incorrect';
+        infoEl.innerHTML = '<div class="font-semibold text-xs md:text-sm mb-2 ' + (correct ? 'text-green-400' : 'text-red-400') + '">' +
+          (correct ? '✓ Correct!' : '✗ Incorrect') + ' — ' + resultLabel + '</div>' +
+          '<div class="text-gray-600 text-[11px] md:text-xs">Actual digit: ' + actualDigit + accStr + '</div>' +
+          '<div class="text-gray-600 text-[11px] md:text-xs leading-relaxed mt-2">' + pred.reasons.join('<br>') + '</div>' +
+          '<div class="text-gray-600 text-[11px] md:text-xs mt-2">Confidence: ' + pred.confidence + '%</div>';
+      }, 800);
+    });
   }
 
   function log(msg) {
